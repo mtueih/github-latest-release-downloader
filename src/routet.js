@@ -5,25 +5,27 @@
  */
 
 
-export async function requestUrlParser(requestUrl) {
-  let url;
+export async function requestUrlParser(requestUrlString) {
+	/* 构造 URL 对象。 */
+	let requestUrl;
 
-  try {
-    url = new URL(requestUrl);
-  } catch {
-    return null;
-  }
+	try {
+		requestUrl = new URL(requestUrlString);
+	} catch {
+		return null;
+	}
 
-  /* 移除开头的 ‘/’。避免使用 .filter(Boolean)，前者更高效。 */
-  const urlPaths = url.pathname.slice(1).split("/");
+	/* 提取路径各部分（路径段）。 */
+	const pathSegments = requestUrl.pathname.split("/").filter(Boolean);
+	console.log(pathSegments);
 
-  if (urlPaths.length !== 3) {
-    return null;
-  }
+	if (pathSegments.length !== 3) {
+		return null;
+	}
 
-  return {
-    user: urlPaths[0],
-    repo: urlPaths[1],
-    file: urlPaths[2],
-  };
+	return {
+		owner: pathSegments[0],
+		repo: pathSegments[1],
+		filename: pathSegments[2],
+	};
 }

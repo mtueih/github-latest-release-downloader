@@ -1,12 +1,6 @@
 {
-  "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "github-release-downloader",
-  "main": "src/index.js",
-  "compatibility_date": "2026-07-07",
-  "observability": {
-    "logs": {
-      "enabled": true,
-      "invocation_logs": true
-    }
-  }
+	"$schema": "./node_modules/wrangler/config-schema.json",
+	"name": "github-release-downloader",
+	"main": "src/index.js",
+	"compatibility_date": "2026-07-07"
 }
