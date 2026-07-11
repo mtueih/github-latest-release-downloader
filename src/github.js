@@ -34,6 +34,6 @@ export async function getLatestReleaseTag(pathInfo) {
 
 	return {
 		tag: tag,
-		urlPrefix: GitHubTagReleaseUrlPrefix,
+		releasesUrl: GitHubReleasesUrl,
 	};
 }

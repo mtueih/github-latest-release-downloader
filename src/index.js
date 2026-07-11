@@ -36,6 +36,6 @@ export default {
 			filename = filename.replaceAll(`{${k}}`, v);
 		}
 
-		return Response.redirect(`${tagInfo.urlPrefix}/download/${tagInfo.tag}/${filename}`);
+		return Response.redirect(`${tagInfo.releasesUrl}/download/${tagInfo.tag}/${filename}`);
 	},
 };
