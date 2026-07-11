@@ -17,7 +17,6 @@ export async function requestUrlParser(requestUrlString) {
 
 	/* 提取路径各部分（路径段）。 */
 	const pathSegments = requestUrl.pathname.split("/").filter(Boolean);
-	console.log(pathSegments);
 
 	if (pathSegments.length !== 3) {
 		return null;

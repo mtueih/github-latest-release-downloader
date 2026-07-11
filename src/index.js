@@ -24,7 +24,7 @@ export default {
 		/* 定义网址中允许的占位符，以及其值。 */
 		const UrlPlaceholders = new Map([
 			["tag", `${tagInfo.tag}`],
-			["version", `${tagInfo.tag.replaceAll(/^v/, "")}`],
+			["version", `${tagInfo.tag.replaceAll(/^v/g, "")}`],
 		]);
 
 		/**
