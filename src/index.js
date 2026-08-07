@@ -24,7 +24,7 @@ export default {
 		/* 定义网址中允许的占位符，以及其值。 */
 		const UrlPlaceholders = new Map([
 			["tag", `${tagInfo.tag}`],
-			["version", `${tagInfo.tag.replaceAll(/^v/g, "")}`],
+			["version", `${(tagInfo.tag.match(/[\d.]+/))[0]}`],
 		]);
 		/**
 		 * 获取解码后的文件名。用来替换其中的占位符。
