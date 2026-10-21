@@ -121,16 +121,49 @@ Turnstile 提供一对固定的测试密钥，**任意域名都可用，永远�
 | `2x00000000000000000000AB` | `2x0000000000000000000000000000000AA` | 永远失败（测错误分支） |
 | `3x00000000000000000000FF` | `1x0000000000000000000000000000000AA` | 强制弹出交互式挑战 |
 
-### `GITHUB_TOKEN` 怎么拿
+### `GITHUB_TOKEN` 有什么用、代价如何
 
-不是必须，但**强烈建议**：不带 Token 时 GitHub API 按 IP 限 60 次/时，带上后 5000 次/时。
+**作用**：只影响一件事——调用 GitHub REST API 时用你的身份而不是「匿名 IP」身份计数。
+
+| | 不带 Token | 带 Token |
+| --- | --- | --- |
+| 限额 | **60 次/时，按来源 IP 计** | **5000 次/时，按 Token 计** |
+| 配额归属 | Cloudflare 的共享出口 IP，与你无关的流量也在抢 | 专属你自己的账户，独立计数 |
+| 稳定性 | 随时可能已被别的程序耗尽，报错时间不可预测 | 个人使用基本用不完（≈1.4 次/秒） |
+
+「按 IP 计」是关键：Worker 的出站请求走的是 Cloudflare 的共享出口 IP，那 60 次/时**不是给你一个人
+的**，而是同一出口 IP 上所有匿名调用方共用一个桶。所以不带 Token 时，列表页会间歇性报「访问次数已达
+上限」，且你无法通过优化代码解决。
+
+**哪些请求在消耗配额**：
+
+- `/owner/repo`（资产列表页）→ 必走 API，1 次/仓库/5 分钟（进程内缓存 TTL）；
+- `/owner/repo/filename`（重定向）→ 也**先**走 API 做精确文件名匹配，失败后回退到
+  `github.com/.../releases/latest` 的 302 探测。**回退路径不消耗 API 配额**，
+  所以即使 API 被限流，重定向功能依然可用，只是拿不到「文件名含字面量 `{version}`」这种精确匹配。
+
+**代价（都很低，但没有为零）**：
+
+1. **金钱**：0。Token 免费，Workers 的 secret 存储也免费，不限个数。
+2. **权限面**：只读公开仓库**不需要任何 scope**。Fine-grained token 一个权限都不勾、Classic token
+   一个 scope 都不勾即可。这样即使泄露，对方也只能读公开数据，不能碰你的代码、Issue、Settings。
+3. **泄露后果**：别人可以拿它烧你的 5000 次/时配额（拒绝服务），以及看到 token 归属哪个账号。
+   不会造成仓库被改。撤销是**即时生效**的：<https://github.com/settings/tokens> 点 Delete。
+4. **维护成本**：Token 有有效期。Fine-grained 最长 1 年（建议设 90 天并加日历提醒），Classic 可选
+   不过期。到期后列表页会报「GitHub Token 无效」（代码里 `401` 分支），届时重新生成 +
+   `npx wrangler secret put GITHUB_TOKEN` 即可，**不需要重新 deploy**。
+5. **共享性**：5000 次/时是**整个 Token 共用**的。如果你把这个 Token 也用在别处，那些调用会和本站
+   抢同一个桶——建议给本站单独建一个。
+
+**结论**：一个零 scope、90 天有效期的 Fine-grained token，成本约等于「每季度花 30 秒换一次」，
+换来的是列表页从「随时可能 502」变成「稳定可用」。值得配。
+
+#### 获取步骤
 
 1. 打开 <https://github.com/settings/tokens>（Fine-grained tokens 或 Classic 均可）；
 2. 生成一个新 token。**只读公开仓库数据不需要任何 scope**，保持全部勾选为空即可
    （Classic token 一个 scope 都不勾）；
 3. 复制 `ghp_...` / `github_pat_...`，然后 `npx wrangler secret put GITHUB_TOKEN`。
-
-Token 只用于读 `releases/latest`，泄露的风险是「别人用你的配额」，不涉及代码读写。
 
 **secret 的两种设置方式，效果等价，任选其一：**
 
