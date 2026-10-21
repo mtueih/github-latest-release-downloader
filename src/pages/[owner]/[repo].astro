@@ -183,10 +183,12 @@ const placeholderValues = release ? buildPlaceholderValues(release.tag) : null;
 					{release.assets.map((asset) => {
 						const tokens = tokenizePlaceholders(asset.name, placeholderValues);
 						const extension = asset.name.match(/\.([^.]+)$/)?.[1]?.toLowerCase() ?? "";
-						const copyUrl = new URL(
-							`/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/${encodeURIComponent(asset.name)}`,
-							Astro.url.origin,
-						).href;
+						const linkName = tokens.map((token) => token.placeholder ? `{${token.name}}` : token.text).join("");
+						const encodedName = encodeURIComponent(linkName)
+							.replaceAll("%7B", "{")
+							.replaceAll("%7D", "}")
+							.replaceAll("%3B", ";");
+						const copyUrl = `${Astro.url.origin}/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/${encodedName}`;
 						return (
 						<li class="asset" data-name={asset.name} data-extension={extension} data-size={asset.size} data-downloads={asset.downloadCount} data-platforms={asset.name.match(/(?:windows|win32|win64|linux|darwin|macos|mac|osx|android|ios|freebsd|openbsd|netbsd|arm64|aarch64|amd64|x86_64|x64|i386|i686|x86|universal|all)/gi)?.join(" ").toLowerCase() ?? ""} data-kind={/\.(zip|7z|rar|tar|gz|bz2|xz|zst|tgz|tbz2|txz)$/i.test(asset.name) ? "archive" : /\.(exe|msi|msix|appx|apk|dmg|pkg|deb|rpm|appimage|bin|com)$/i.test(asset.name) ? "executable" : "other"}>
 							<div class="asset-main">
@@ -201,8 +203,8 @@ const placeholderValues = release ? buildPlaceholderValues(release.tag) : null;
 										{asset.updatedAt && <span>更新于 {formatDate(asset.updatedAt)}</span>}
 									</div>
 								</div>
-								<button class="btn js-copy" type="button" data-url={copyUrl}>
-									复制直链
+								<button class="btn js-copy" type="button" data-url={copyUrl} title={copyUrl} aria-label={`复制可复用链接：${copyUrl}`}>
+									复制可复用链接
 								</button>
 							</li>
 						);
@@ -224,7 +226,7 @@ const placeholderValues = release ? buildPlaceholderValues(release.tag) : null;
 			)}
 
 			<div class="notice" style="margin-top: 1.5rem;">
-				<div class="notice-title">关于「复制直链」</div>
+				<div class="notice-title">关于「复制可复用链接」</div>
 				复制的地址形如 <span class="kbd">/{owner}/{repo}/&lt;文件名&gt;</span>，它始终指向该仓库「当前最新发行」中的同名文件；
 				文件名里的占位符会在访问时替换为最新的标签与版本号，因此可以长期复用。
 			</div>
