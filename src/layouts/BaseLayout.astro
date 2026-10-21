@@ -1,0 +1,47 @@
+/*
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/.
+ */
+
+---
+import "../styles/global.css";
+
+const {title, description = "按 owner/repo 直接下载 GitHub 仓库最新发行版本的资源。", noindex = false} =
+	Astro.props;
+---
+
+<!doctype html>
+<html lang="zh-CN">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="generator" content={Astro.generator} />
+		<title>{title}</title>
+		<meta name="description" content={description} />
+		{noindex && <meta name="robots" content="noindex, nofollow" />}
+		<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+		<link rel="preconnect" href="https://challenges.cloudflare.com" />
+	</head>
+	<body>
+		<header class="site-header">
+			<div class="shell">
+				<a class="brand" href="/">
+					<span class="brand-mark" aria-hidden="true">GH</span>
+					<span>Latest Release<span class="brand-sub">Downloader</span></span>
+				</a>
+			</div>
+		</header>
+
+		<main class="shell">
+			<slot />
+		</main>
+
+		<footer class="site-footer">
+			<div class="shell">
+				<span>数据来自 GitHub REST API，按需拉取。</span>
+				<span><a href="https://github.com" rel="noopener">GitHub</a></span>
+			</div>
+		</footer>
+	</body>
+</html>

@@ -1,0 +1,249 @@
+---
+/*
+ * 某仓库最新发行版本的文件列表。
+ * 该页面按需渲染（prerender = false），并且需要先通过 Turnstile 人机验证，
+ * 以避免 GitHub API 的严格限流被轻易耗尽。
+ */
+
+import {getConfig, isTurnstileEnabled} from "../../lib/config";
+import {getLatestRelease, isValidOwnerRepo, GitHubApiError} from "../../lib/github-api";
+import {PASS_COOKIE_NAME, verifyPassToken} from "../../lib/pass-cookie";
+import {buildPlaceholderValues, tokenizePlaceholders} from "../../lib/placeholders";
+import {formatBytes, formatCount, formatDate} from "../../lib/format";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+
+export const prerender = false;
+
+const {owner, repo} = Astro.params;
+const config = getConfig();
+const turnstileEnabled = isTurnstileEnabled(config);
+
+/* 参数明显非法时直接拒绝，不消耗 GitHub 限额。 */
+const paramsValid = Boolean(owner && repo && isValidOwnerRepo(owner, repo));
+
+let passed = false;
+if (paramsValid && turnstileEnabled) {
+	const token = Astro.cookies.get(PASS_COOKIE_NAME)?.value;
+	passed = token ? await verifyPassToken(config.passCookieSecret, token) : false;
+}
+
+/* 未启用 Turnstile 时直接放行，方便本地开发与首次部署。 */
+const canFetch = paramsValid && (!turnstileEnabled || passed);
+
+let release = null;
+let failure = null;
+
+if (!paramsValid) {
+	failure = {kind: "bad-request", message: "用户名或仓库名不合法。"};
+	Astro.response.status = 400;
+} else if (canFetch) {
+	try {
+		release = await getLatestRelease({owner, repo, token: config.githubToken});
+	} catch (error) {
+		if (error instanceof GitHubApiError) {
+			let message = error.message;
+			if (error.kind === "rate-limited" && error.resetAt > Date.now()) {
+				const resetAt = new Date(error.resetAt);
+				const hh = String(resetAt.getUTCHours()).padStart(2, "0");
+				const mm = String(resetAt.getUTCMinutes()).padStart(2, "0");
+				message += `限额将于 ${hh}:${mm}（UTC）重置。`;
+			}
+			failure = {kind: error.kind, message};
+			Astro.response.status = error.kind === "not-found" ? 404 : 502;
+		} else {
+			failure = {kind: "unknown", message: "请求 GitHub API 时发生意外错误。"};
+			Astro.response.status = 500;
+		}
+	}
+}
+
+/* 人机验证失败时由 /api/verify 重定向回来，并带上原因。 */
+const verifyError = Astro.url.searchParams.get("verify");
+const verifyMessage =
+	verifyError === null
+		? ""
+		: verifyError === "missing"
+			? "未能读取人机验证结果，请重新完成验证。"
+			: verifyError;
+
+const pageTitle = `${owner ?? ""}/${repo ?? ""} · GitHub 最新发行资源`;
+Astro.response.headers.set("Cache-Control", "no-store");
+Astro.response.headers.set("X-Robots-Tag", "noindex, nofollow");
+
+/* 只有真正拿到发行信息时才需要展示占位符图例。 */
+const placeholderValues = release ? buildPlaceholderValues(release.tag) : null;
+---
+
+<BaseLayout title={pageTitle} description={`查看 ${owner}/${repo} 最新发行版本的文件列表。`} noindex={true}>
+	<div class="crumb">
+		<a href="/">首页</a>
+		<span class="sep">/</span>
+		<span>{owner}</span>
+		<span class="sep">/</span>
+		<strong>{repo}</strong>
+	</div>
+
+	{!canFetch && paramsValid && (
+		<section class="gate">
+			<div class="card">
+				<div class="card-pad">
+					<h1>需要一次人机验证</h1>
+					<p class="lead" style="margin-bottom: 0;">
+						为避免 GitHub API 的免费额度被快速耗尽，请先完成下方验证。通过后 2 小时内无需重复验证。
+					</p>
+
+					{verifyMessage && (
+						<div class="notice notice-error" style="margin-top: 1rem; text-align: left;">
+							{verifyMessage}
+						</div>
+					)}
+
+					<form method="post" action="/api/verify">
+						<input type="hidden" name="next" value={Astro.url.pathname} />
+						<div class="turnstile-slot">
+							<div
+								class="cf-turnstile"
+								data-sitekey={config.turnstileSiteKey}
+								data-theme="auto"
+								data-callback="glrdChallengeOk"
+								data-error-callback="glrdChallengeError"
+								data-expired-callback="glrdChallengeExpired"
+							></div>
+						</div>
+						<button class="btn btn-primary" id="gate-submit" type="submit" disabled>
+							查看资源列表
+						</button>
+					</form>
+				</div>
+			</div>
+		</section>
+	)}
+
+	{canFetch && failure && (
+		<>
+			<h1>{owner}/{repo}</h1>
+			<div class="notice notice-error">
+				<div class="notice-title">无法获取资源列表</div>
+				<div>{failure.message}</div>
+			</div>
+			<p class="lead">
+				请确认仓库名称拼写正确，并且该仓库已发布正式版本（预发布版本不计入「最新发行」）。
+			</p>
+		</>
+	)}
+
+	{release && (
+		<>
+			<h1>{owner}/{repo}</h1>
+			<div class="meta-line" style="margin-bottom: 1.25rem;">
+				<span>
+					最新发行
+					<span class="tag-badge" style="margin-left: 0.25rem;">{release.tag}</span>
+				</span>
+				{release.releaseName && release.releaseName !== release.tag && <span>{release.releaseName}</span>}
+				{release.publishedAt && <span>发布于 {formatDate(release.publishedAt)}</span>}
+				<span>{release.assets.length} 个文件</span>
+				<a href={release.releaseUrl} target="_blank" rel="noopener noreferrer">在 GitHub 查看</a>
+			</div>
+
+			{release.assets.length === 0 ? (
+				<div class="card">
+					<div class="empty">本次发行没有附带任何文件。</div>
+				</div>
+			) : (
+				<ul class="asset-list">
+					{release.assets.map((asset) => {
+						const tokens = tokenizePlaceholders(asset.name);
+						const copyUrl = new URL(
+							`/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/${encodeURIComponent(asset.name)}`,
+							Astro.url.origin,
+						).href;
+						return (
+							<li class="asset">
+								<div class="asset-main">
+									<a class="asset-name" href={asset.downloadUrl} target="_blank" rel="noopener noreferrer">
+										{tokens.map((token) =>
+											token.placeholder ? <span class="ph">{token.text}</span> : token.text,
+										)}
+									</a>
+									<div class="asset-meta">
+										{asset.size > 0 && <span>{formatBytes(asset.size)}</span>}
+										{asset.downloadCount > 0 && <span>{formatCount(asset.downloadCount)} 次下载</span>}
+										{asset.updatedAt && <span>更新于 {formatDate(asset.updatedAt)}</span>}
+									</div>
+								</div>
+								<button class="btn js-copy" type="button" data-url={copyUrl}>
+									复制直链
+								</button>
+							</li>
+						);
+					})}
+				</ul>
+			)}
+
+			{placeholderValues && (
+				<div class="placeholder-legend">
+					文件名中的
+					<span class="kbd">{`{tag}`}</span>
+					会被替换为
+					<span class="kbd">{placeholderValues.tag}</span>，
+					<span class="kbd">{`{version}`}</span>
+					会被替换为
+					<span class="kbd">{placeholderValues.version}</span>。
+				</div>
+			)}
+
+			<div class="notice" style="margin-top: 1.5rem;">
+				<div class="notice-title">关于「复制直链」</div>
+				复制的地址形如 <span class="kbd">/{owner}/{repo}/&lt;文件名&gt;</span>，它始终指向该仓库「当前最新发行」中的同名文件；
+				文件名里的占位符会在访问时替换为最新的标签与版本号，因此可以长期复用。
+			</div>
+		</>
+	)}
+</BaseLayout>
+
+{canFetch === false && paramsValid && (
+	<script is:inline src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+)}
+
+<script is:inline>
+	function glrdSetGateEnabled(enabled) {
+		const submit = document.getElementById("gate-submit");
+		if (submit) submit.disabled = !enabled;
+	}
+
+	function glrdChallengeOk() {
+		glrdSetGateEnabled(true);
+	}
+
+	function glrdChallengeError() {
+		glrdSetGateEnabled(false);
+	}
+
+	function glrdChallengeExpired() {
+		glrdSetGateEnabled(false);
+	}
+</script>
+
+<script>
+	for (const button of document.querySelectorAll(".js-copy")) {
+		button.addEventListener("click", async () => {
+			const url = button.dataset.url;
+			if (!url) return;
+			const label = button.textContent;
+			try {
+				await navigator.clipboard.writeText(url);
+				button.textContent = "已复制";
+				button.classList.add("btn-copied");
+				button.disabled = true;
+				setTimeout(() => {
+					button.textContent = label;
+					button.classList.remove("btn-copied");
+					button.disabled = false;
+				}, 1800);
+			} catch {
+				window.prompt("请手动复制以下链接：", url);
+			}
+		});
+	}
+</script>

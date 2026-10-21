@@ -1,0 +1,69 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+
+<BaseLayout
+	title="GitHub Latest Release Downloader"
+	description="按 owner/repo 直达 GitHub 仓库最新发行版本的文件列表，并生成可复用的下载直链。"
+>
+	<h1>GitHub 最新发行资源</h1>
+	<p class="lead">
+		输入用户名与仓库名，即可查看该仓库最新正式发行的全部文件，并复制一条可直接下载的固定链接。
+	</p>
+
+	<div class="card card-pad">
+		<form class="form-row" id="lookup-form" method="get" action="/">
+			<div class="field">
+				<label for="owner">用户名 / 组织</label>
+				<input id="owner" name="owner" type="text" required autocapitalize="none" autocomplete="off" spellcheck="false" placeholder="withastro" />
+			</div>
+			<div class="field">
+				<label for="repo">仓库名称</label>
+				<input id="repo" name="repo" type="text" required autocapitalize="none" autocomplete="off" spellcheck="false" placeholder="astro" />
+			</div>
+			<div>
+				<button class="btn btn-primary" type="submit">查看资源</button>
+			</div>
+		</form>
+	</div>
+
+	<h2>支持的占位符</h2>
+	<p class="lead" style="margin-bottom: 0.75rem;">
+		文件名中的下列片段会在跳转时被替换为当前发行版本的真实取值，列表中也会被单独高亮标记。
+	</p>
+	<div class="placeholder-legend">
+		<span class="kbd">{"{tag}"}</span><span>完整发行标签，例如 <span class="mono">v1.2.3</span></span>
+		<span class="kbd">{"{version}"}</span><span>标签中的版本号，例如 <span class="mono">1.2.3</span></span>
+	</div>
+
+	<h2>两种用法</h2>
+	<ul class="asset-list">
+		<li class="asset">
+			<div class="asset-main">
+				<span class="asset-name"><span class="mono">/owner/repo</span></span>
+				<div class="asset-meta"><span>查看该仓库最新发行的文件列表</span></div>
+			</div>
+		</li>
+		<li class="asset">
+			<div class="asset-main">
+				<span class="asset-name"><span class="mono">/owner/repo/tool-{"{version}"}.zip</span></span>
+				<div class="asset-meta"><span>直接下载，占位符自动替换为当前版本</span></div>
+			</div>
+		</li>
+	</ul>
+
+	<script>
+		const form = document.getElementById("lookup-form");
+		form?.addEventListener("submit", (event) => {
+			event.preventDefault();
+			const data = new FormData(form);
+			const owner = String(data.get("owner") ?? "").trim();
+			const repo = String(data.get("repo") ?? "").trim();
+			if (!owner || !repo) {
+				return;
+			}
+			/* 逐段编码，避免用户名或仓库名中的特殊字符破坏路径结构。 */
+			window.location.href = `/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`;
+		});
+	</script>
+</BaseLayout>
