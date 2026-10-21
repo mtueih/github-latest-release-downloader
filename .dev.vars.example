@@ -1,0 +1,18 @@
+# 本地开发变量（`wrangler dev` 会自动读取本文件）。
+# 该文件已被 .gitignore 忽略，可以安全存放本地密钥。
+#
+# 这里默认填的是 Cloudflare Turnstile 官方「始终通过」测试密钥，
+# 因此本地不需要任何配置就能走通完整的人机验证流程。
+# 部署前请替换为你在 Turnstile 后台创建站点时拿到的真实密钥。
+
+# 公开站点密钥，会被渲染进页面（测试用：始终通过）
+TURNSTILE_SITE_KEY=1x00000000000000000000AA
+
+# 服务端校验密钥，只能放在服务端（测试用：始终通过）
+TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA
+
+# 通行 Cookie 的签名密钥，留空则回退使用 TURNSTILE_SECRET_KEY
+PASS_COOKIE_SECRET=
+
+# 可选：GitHub Token，带上后 GitHub API 限额从 60 次/时提升到 5000 次/时
+GITHUB_TOKEN=
