@@ -1,3 +1,10 @@
 node_modules/
 .wrangler/
 .idea
+dist/
+.astro/
+
+# 本地开发用的变量文件（含密钥，切勿提交）。示例见 .dev.vars.example
+.dev.vars
+.dev.vars.*
+!.dev.vars.example

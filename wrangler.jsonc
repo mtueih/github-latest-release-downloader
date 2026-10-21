@@ -1,6 +1,23 @@
 {
 	"$schema": "./node_modules/wrangler/config-schema.json",
 	"name": "github-latest-release-downloader",
-	"main": "src/index.js",
-	"compatibility_date": "2026-07-07"
+	"main": "@astrojs/cloudflare/entrypoints/server",
+	"compatibility_date": "2026-07-07",
+	"assets": {
+		"directory": "./dist",
+		"binding": "ASSETS"
+	},
+	"vars": {
+		// 明文变量（非机密，会渲染进页面 HTML）。本地开发可填测试密钥 1x00000000000000000000AA。
+		// 注意：这里声明的明文变量是「唯一事实来源」，每次 deploy 都会覆盖控制台上同名变量的改动。
+		"TURNSTILE_SITE_KEY": "0x4AAAAAAFe9l4EM-mnNLSnC"
+		// 以下 3 个是凭证，不能写在这里，必须存成加密 secret（二选一，效果等价）：
+		//   A) npx wrangler secret put <名称>      —— 立即生效，无需重新 deploy
+		//   B) 控制台 → Workers & Pages → 本 Worker → Settings → Variables and Secrets
+		//      → Add → Type 选 Secret → 填名称与值 → Deploy
+		// secret 不会被 deploy 覆盖或删除，只有 `wrangler secret delete <名称>` 才会移除。
+		//   TURNSTILE_SECRET_KEY   必填，缺失时资产列表页会关闭人机验证
+		//   PASS_COOKIE_SECRET     可选，缺省回退到 TURNSTILE_SECRET_KEY
+		//   GITHUB_TOKEN           可选，带上后 GitHub API 限额从 60 次/时提升到 5000 次/时
+	}
 }

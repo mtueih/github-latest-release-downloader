@@ -2,11 +2,19 @@
 	"name": "github-latest-release-downloader",
 	"version": "0.0.0",
 	"private": true,
+	"type": "module",
 	"scripts": {
-		"dev": "wrangler dev",
-		"deploy": "wrangler deploy"
+		"build": "astro build",
+		"dev": "astro build && wrangler dev",
+		"preview": "astro build && wrangler dev --port 8787",
+		"deploy": "astro build && wrangler deploy",
+		"check": "astro check"
 	},
 	"devDependencies": {
-		"wrangler": "^4.110.0"
+		"wrangler": "^4.151.3"
+	},
+	"dependencies": {
+		"@astrojs/cloudflare": "^14.4.1",
+		"astro": "^7.4.1"
 	}
 }
