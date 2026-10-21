@@ -151,16 +151,45 @@ const placeholderValues = release ? buildPlaceholderValues(release.tag) : null;
 					<div class="empty">本次发行没有附带任何文件。</div>
 				</div>
 			) : (
-				<ul class="asset-list">
+				<>
+					<div class="asset-toolbar" id="asset-controls" data-tag={placeholderValues.tag} data-version={placeholderValues.version}>
+						<div class="field asset-search-field">
+							<label for="asset-search">搜索文件名</label>
+							<input id="asset-search" type="search" placeholder="输入名称关键词" autocomplete="off" />
+						</div>
+						<div class="field">
+							<label for="asset-sort">排序方式</label>
+							<select id="asset-sort"><option value="name">名称</option><option value="extension">后缀名</option><option value="downloads">下载量</option><option value="size">大小</option></select>
+						</div>
+						<div class="field">
+							<label for="asset-direction">顺序</label>
+							<select id="asset-direction"><option value="asc">升序</option><option value="desc">降序</option></select>
+						</div>
+						<div class="field">
+							<label for="asset-category">文件类型</label>
+							<select id="asset-category"><option value="all">全部类型</option><option value="archive">压缩包</option><option value="executable">可执行文件</option><option value="other">其他文件</option></select>
+						</div>
+						<div class="field">
+							<label for="asset-platform">平台关键词</label>
+							<select id="asset-platform"><option value="">全部平台</option></select>
+						</div>
+						<div class="field">
+							<label for="asset-extension">后缀名</label>
+							<select id="asset-extension"><option value="">全部后缀</option></select>
+						</div>
+						<div class="asset-control-status" id="asset-control-status" aria-live="polite"></div>
+					</div>
+					<ul class="asset-list" id="asset-list">
 					{release.assets.map((asset) => {
 						const tokens = tokenizePlaceholders(asset.name, placeholderValues);
+						const extension = asset.name.match(/\.([^.]+)$/)?.[1]?.toLowerCase() ?? "";
 						const copyUrl = new URL(
 							`/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/${encodeURIComponent(asset.name)}`,
 							Astro.url.origin,
 						).href;
 						return (
-							<li class="asset">
-								<div class="asset-main">
+						<li class="asset" data-name={asset.name} data-extension={extension} data-size={asset.size} data-downloads={asset.downloadCount} data-platforms={asset.name.match(/(?:windows|win32|win64|linux|darwin|macos|mac|osx|android|ios|freebsd|openbsd|netbsd|arm64|aarch64|amd64|x86_64|x64|i386|i686|x86|universal|all)/gi)?.join(" ").toLowerCase() ?? ""} data-kind={/\.(zip|7z|rar|tar|gz|bz2|xz|zst|tgz|tbz2|txz)$/i.test(asset.name) ? "archive" : /\.(exe|msi|msix|appx|apk|dmg|pkg|deb|rpm|appimage|bin|com)$/i.test(asset.name) ? "executable" : "other"}>
+							<div class="asset-main">
 									<a class="asset-name" href={asset.downloadUrl} target="_blank" rel="noopener noreferrer">
 										{tokens.map((token) =>
 											token.placeholder ? <span class={`ph ph-${token.name}`}>{token.text}</span> : token.text,
@@ -178,7 +207,8 @@ const placeholderValues = release ? buildPlaceholderValues(release.tag) : null;
 							</li>
 						);
 					})}
-				</ul>
+					</ul>
+				</>
 			)}
 
 			{placeholderValues && (
@@ -226,6 +256,52 @@ const placeholderValues = release ? buildPlaceholderValues(release.tag) : null;
 </script>
 
 <script>
+	const assetList = document.getElementById("asset-list");
+	const assetControls = document.getElementById("asset-controls");
+	if (assetList && assetControls) {
+		const rows = [...assetList.querySelectorAll(".asset")];
+		const search = document.getElementById("asset-search");
+		const sort = document.getElementById("asset-sort");
+		const direction = document.getElementById("asset-direction");
+		const category = document.getElementById("asset-category");
+		const platform = document.getElementById("asset-platform");
+		const extension = document.getElementById("asset-extension");
+		const status = document.getElementById("asset-control-status");
+		const platformWords = ["windows", "win32", "win64", "linux", "darwin", "macos", "mac", "osx", "android", "ios", "freebsd", "openbsd", "netbsd", "arm64", "aarch64", "amd64", "x86_64", "x64", "i386", "i686", "x86", "universal", "all"];
+		const extensions = [...new Set(rows.map((row) => row.dataset.extension).filter(Boolean))].sort();
+		const platforms = [...new Set(rows.flatMap((row) => platformWords.filter((word) => row.dataset.platforms?.split(" ").includes(word))))].sort();
+		for (const value of extensions) extension.add(new Option(`.${value}`, value));
+		for (const value of platforms) platform.add(new Option(value, value));
+
+		const updateAssets = () => {
+			const query = search.value.trim().toLocaleLowerCase();
+			const filtered = rows.filter((row) => {
+				const name = row.dataset.name.toLocaleLowerCase();
+				return (!query || name.includes(query)) &&
+					(!extension.value || row.dataset.extension === extension.value) &&
+					(!platform.value || row.dataset.platforms.split(" ").includes(platform.value)) &&
+					(category.value === "all" || row.dataset.kind === category.value);
+			});
+			const key = sort.value;
+			const sign = direction.value === "asc" ? 1 : -1;
+			filtered.sort((a, b) => {
+				let result;
+				if (key === "size" || key === "downloads") result = Number(a.dataset[key]) - Number(b.dataset[key]);
+				else {
+					const aValue = key === "extension" ? a.dataset.extension : a.dataset.name;
+					const bValue = key === "extension" ? b.dataset.extension : b.dataset.name;
+					result = aValue.localeCompare(bValue, undefined, {numeric: true, sensitivity: "base"});
+				}
+				return result * sign || a.dataset.name.localeCompare(b.dataset.name, undefined, {numeric: true, sensitivity: "base"});
+			});
+			for (const row of rows) row.hidden = !filtered.includes(row);
+			for (const row of filtered) assetList.append(row);
+			status.textContent = `显示 ${filtered.length} / ${rows.length} 个文件`;
+		};
+		for (const control of [search, sort, direction, category, platform, extension]) control.addEventListener(control === search ? "input" : "change", updateAssets);
+		updateAssets();
+	}
+
 	for (const button of document.querySelectorAll(".js-copy")) {
 		button.addEventListener("click", async () => {
 			const url = button.dataset.url;
