@@ -258,16 +258,27 @@ p {
 	opacity: 0.55;
 }
 
-/* 与占位符同名的片段：特殊标识 */
+/* tag 与 version 使用不同色彩，资产名和图例复用同一套视觉样式。 */
 .ph {
+	display: inline-block;
 	font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
 	font-size: 0.88em;
-	background: var(--ph-bg);
-	color: var(--ph-fg);
-	border: 1px solid var(--ph-border);
 	border-radius: 5px;
 	padding: 0.02em 0.28em;
 	font-weight: 600;
+	border: 1px solid transparent;
+}
+
+.ph-tag {
+	background: var(--accent-soft);
+	color: var(--accent);
+	border-color: var(--ph-border);
+}
+
+.ph-version {
+	background: var(--ph-bg);
+	color: var(--ph-fg);
+	border-color: var(--ph-border);
 }
 
 .btn {

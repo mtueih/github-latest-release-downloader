@@ -153,7 +153,7 @@ const placeholderValues = release ? buildPlaceholderValues(release.tag) : null;
 			) : (
 				<ul class="asset-list">
 					{release.assets.map((asset) => {
-						const tokens = tokenizePlaceholders(asset.name);
+						const tokens = tokenizePlaceholders(asset.name, placeholderValues);
 						const copyUrl = new URL(
 							`/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/${encodeURIComponent(asset.name)}`,
 							Astro.url.origin,
@@ -163,7 +163,7 @@ const placeholderValues = release ? buildPlaceholderValues(release.tag) : null;
 								<div class="asset-main">
 									<a class="asset-name" href={asset.downloadUrl} target="_blank" rel="noopener noreferrer">
 										{tokens.map((token) =>
-											token.placeholder ? <span class="ph">{token.text}</span> : token.text,
+											token.placeholder ? <span class={`ph ph-${token.name}`}>{token.text}</span> : token.text,
 										)}
 									</a>
 									<div class="asset-meta">
@@ -184,12 +184,12 @@ const placeholderValues = release ? buildPlaceholderValues(release.tag) : null;
 			{placeholderValues && (
 				<div class="placeholder-legend">
 					文件名中的
-					<span class="kbd">{`{tag}`}</span>
+					<span class="ph ph-tag">{`{tag}`}</span>
 					会被替换为
-					<span class="kbd">{placeholderValues.tag}</span>，
-					<span class="kbd">{`{version}`}</span>
+					<span class="ph ph-tag">{placeholderValues.tag}</span>，
+					<span class="ph ph-version">{`{version}`}</span>
 					会被替换为
-					<span class="kbd">{placeholderValues.version}</span>。
+					<span class="ph ph-version">{placeholderValues.version}</span>。
 				</div>
 			)}
 

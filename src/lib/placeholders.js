@@ -36,25 +36,24 @@ export function substitutePlaceholders(text, values) {
 }
 
 /**
- * 把文本切分为若干片段，标记哪些片段是占位符。
- * 用于在页面上把占位符部分特殊标识出来。
+ * 找出资产名称中应高亮的占位符值。
+ * `{tag}` 优先；仅在名称中找不到 tag 时才尝试 `{version}`。
  */
-export function tokenizePlaceholders(text) {
+export function tokenizePlaceholders(text, values = {}) {
 	const source = String(text ?? "");
-	const tokens = [];
-	let lastIndex = 0;
+	const tag = String(values.tag ?? "");
+	const version = String(values.version ?? "");
+	const candidates = [{name: "tag", text: tag}, {name: "version", text: version}].filter((candidate) => candidate.text);
+	const match = candidates.find((candidate) => source.includes(candidate.text));
 
-	for (const match of source.matchAll(PLACEHOLDER_PATTERN)) {
-		if (match.index > lastIndex) {
-			tokens.push({text: source.slice(lastIndex, match.index), placeholder: false});
-		}
-		tokens.push({text: match[0], placeholder: true});
-		lastIndex = match.index + match[0].length;
-	}
+	if (!match) return [{text: source, placeholder: false, name: null}];
 
-	if (lastIndex < source.length) {
-		tokens.push({text: source.slice(lastIndex), placeholder: false});
-	}
-
-	return tokens;
+	const index = source.indexOf(match.text);
+	return [
+		...(index > 0 ? [{text: source.slice(0, index), placeholder: false, name: null}] : []),
+		{text: match.text, placeholder: true, name: match.name},
+		...(index + match.text.length < source.length
+			? [{text: source.slice(index + match.text.length), placeholder: false, name: null}]
+			: []),
+	];
 }
